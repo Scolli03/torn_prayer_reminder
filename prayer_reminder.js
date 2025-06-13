@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn City Prayer Reminder
 // @namespace    http://tampermonkey.net/
-// @version      3.0
+// @version      3.1
 // @description  Reminds you to pray at the church in Torn City at configurable times (browser & Torn PDA). Supports manual times and auto interval snooze.
 // @author       YourName
 // @match        https://www.torn.com/*
@@ -215,6 +215,22 @@
         updatePrayerIconTooltip();
     }
 
+    // --- Time Parsing Helper ---
+    function parseTimeString(timeStr) {
+        // Accepts "9:30", "09:30", "9:30 AM", "9:30PM", "21:30", etc.
+        const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])?$/);
+        if (!match) return null;
+        let hour = parseInt(match[1], 10);
+        const minute = parseInt(match[2], 10);
+        const ampm = match[3] ? match[3].toUpperCase() : null;
+
+        if (ampm) {
+            if (ampm === 'PM' && hour < 12) hour += 12;
+            if (ampm === 'AM' && hour === 12) hour = 0;
+        }
+        return { hour, minute };
+    }
+
     // --- UI for setting times (add/remove/interval) ---
     function openPrayerConfigUI() {
         if (!isReallyTornPDA && typeof Notification !== "undefined" && Notification.permission !== "granted") {
@@ -348,8 +364,12 @@
                     renderTimes();
                     input.value = "";
                     if (isReallyTornPDA && window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
-                        const [h, m] = input.value.trim().split(":").map(Number);
-                        schedulePrayerReminder(h, m);
+                        const parsed = parseTimeString(input.value.trim());
+                        if (parsed) {
+                            schedulePrayerReminder(parsed.hour, parsed.minute);
+                        } else {
+                            alert('Invalid time format. Please use HH:MM or HH:MM AM/PM.');
+                        }
                     }
                 }
             }
@@ -486,6 +506,32 @@
                 offset: parseInt(iconOffsetInput.value, 10)
             }));
         });
+
+        // Create the button
+        const logBtn = document.createElement('button');
+        logBtn.textContent = 'Log Scheduled Notifications';
+        logBtn.style.marginLeft = '10px';
+        logBtn.onclick = async function() {
+            if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+                try {
+                    const scheduled = await window.flutter_inappwebview.callHandler('getScheduledNotifications');
+                    console.log('[Prayer Reminder] Scheduled notifications:', scheduled);
+                    if (Array.isArray(scheduled)) {
+                        scheduled.forEach(n => {
+                            const localTime = new Date(n.timestamp).toLocaleString();
+                            console.log(`ID: ${n.id}, Time: ${localTime}, Title: ${n.title}`);
+                        });
+                    }
+                } catch (e) {
+                    console.error('[Prayer Reminder] Failed to fetch scheduled notifications:', e);
+                }
+            } else {
+                console.warn('Not running in Torn PDA environment.');
+            }
+        };
+
+        // Add the button to your modal (adjust selector as needed)
+        modal.appendChild(logBtn); // Replace modalElement with your modal's container variable
     }
 
     // --- Snooze after prayer ---
@@ -525,9 +571,26 @@
 
     // --- Main Scheduling Logic ---
     async function schedulePrayerReminder(hour, minute) {
+        if (
+            typeof hour !== 'number' ||
+            typeof minute !== 'number' ||
+            isNaN(hour) ||
+            isNaN(minute) ||
+            hour < 0 || hour > 23 ||
+            minute < 0 || minute > 59
+        ) {
+            console.error(`[Prayer] Invalid hour or minute: hour=${hour}, minute=${minute}`);
+            return;
+        }
+
         const now = new Date();
         const targetTime = new Date(now);
         targetTime.setHours(hour, minute, 0, 0);
+
+        if (isNaN(targetTime.getTime())) {
+            console.error(`[Prayer] Computed invalid targetTime for hour=${hour}, minute=${minute}`);
+            return;
+        }
 
         if (targetTime <= now) {
             targetTime.setDate(targetTime.getDate() + 1);
