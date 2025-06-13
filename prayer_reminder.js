@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn City Prayer Reminder
 // @namespace    http://tampermonkey.net/
-// @version      3.1
+// @version      3.2
 // @description  Reminds you to pray at the church in Torn City at configurable times (browser & Torn PDA). Supports manual times and auto interval snooze.
 // @author       YourName
 // @match        https://www.torn.com/*
@@ -217,16 +217,16 @@
 
     // --- Time Parsing Helper ---
     function parseTimeString(timeStr) {
-        // Accepts "9:30", "09:30", "9:30 AM", "9:30PM", "21:30", etc.
-        const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])?$/);
+        // Accepts "9:30", "09:30", "9:30 AM", "9:30am", "9:30 pm", "21:30", etc.
+        const match = timeStr.trim().match(/^(\d{1,2})\s*:\s*(\d{2})\s*(am|pm)?$/i);
         if (!match) return null;
         let hour = parseInt(match[1], 10);
         const minute = parseInt(match[2], 10);
-        const ampm = match[3] ? match[3].toUpperCase() : null;
+        const ampm = match[3] ? match[3].toLowerCase() : null;
 
         if (ampm) {
-            if (ampm === 'PM' && hour < 12) hour += 12;
-            if (ampm === 'AM' && hour === 12) hour = 0;
+            if (ampm === 'pm' && hour < 12) hour += 12;
+            if (ampm === 'am' && hour === 12) hour = 0;
         }
         return { hour, minute };
     }
@@ -365,6 +365,7 @@
                     input.value = "";
                     if (isReallyTornPDA && window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
                         const parsed = parseTimeString(input.value.trim());
+                        console.log('Parsed time:', parsed);
                         if (parsed) {
                             schedulePrayerReminder(parsed.hour, parsed.minute);
                         } else {
