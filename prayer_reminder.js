@@ -307,13 +307,17 @@
                 </label>
                 <br>
                 <span style="margin-right:4px;">Offset from end:</span>
-                <input id="icon-offset" type="number" min="0" value="${iconSettings.offset}" style="width:48px;padding:2px 6px;border-radius:5px;border:1px solid #444;background:#181818;color:#fff;">
+                <input id="icon-offset" type="number" min="0" value="${iconSettings.offset}" style="width:48px;padding:2px 6px;border-radius:5px;border:1px solid #444;background:#181818;color:#fff;" ${iconSettings.position === "beginning" ? "disabled" : ""}>
             </div>
             <div style="display:flex;justify-content:center;gap:12px;">
                 <button id="cancel-prayer-modal" style="padding:6px 18px;border-radius:5px;background:#666;color:#fff;border:none;cursor:pointer;">Cancel</button>
                 <button id="close-prayer-modal" style="padding:6px 18px;border-radius:5px;background:#444;color:#fff;border:none;cursor:pointer;">Save</button>
             </div>
-            <div style="margin-top:10px;font-size:12px;color:#aaa;">Page will refresh automatically on save.</div>
+            <div style="margin-top:10px;font-size:12px;color:#aaa;">
+                All changes are saved instantly.<br>
+                <b>Save</b> will refresh the page to apply icon position.<br>
+                <b>Cancel</b> closes this window but does not undo changes.
+            </div>
         `;
 
         document.body.appendChild(modal);
@@ -439,6 +443,32 @@
                 window.location.reload();
             }
         };
+
+        // Icon position radio change handler to enable/disable offset input
+        const iconOffsetInput = modal.querySelector('#icon-offset');
+        const iconPositionRadios = modal.querySelectorAll('input[name="icon-position"]');
+        iconPositionRadios.forEach(radio => {
+            radio.addEventListener('change', function () {
+                if (this.value === "beginning") {
+                    iconOffsetInput.disabled = true;
+                } else {
+                    iconOffsetInput.disabled = false;
+                }
+                // Save instantly
+                localStorage.setItem('prayerReminderIconSettings', JSON.stringify({
+                    position: this.value,
+                    offset: parseInt(iconOffsetInput.value, 10)
+                }));
+            });
+        });
+        // Also save offset instantly on change
+        iconOffsetInput.addEventListener('input', function () {
+            const selectedPosition = modal.querySelector('input[name="icon-position"]:checked').value;
+            localStorage.setItem('prayerReminderIconSettings', JSON.stringify({
+                position: selectedPosition,
+                offset: parseInt(iconOffsetInput.value, 10)
+            }));
+        });
     }
 
     // --- Snooze after prayer ---
