@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn City Prayer Reminder
 // @namespace    http://tampermonkey.net/
-// @version      2.7
+// @version      2.8
 // @description  Reminds you to pray at the church in Torn City at configurable times (browser & Torn PDA). Supports manual times and auto interval snooze.
 // @author       YourName
 // @match        https://www.torn.com/*
@@ -197,6 +197,8 @@
 
         const li = document.createElement('li');
         li.className = 'icon-prayer-reminder';
+        li.style.background = "none"; // <--- Add this line to remove the green circle
+
         const a = document.createElement('a');
         a.href = "#";
         a.id = "prayer-reminder-icon";
