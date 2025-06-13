@@ -236,12 +236,13 @@
         modal.style.transform = 'translate(-50%, -50%)';
         modal.style.background = '#222';
         modal.style.color = '#fff';
-        modal.style.padding = '24px';
-        modal.style.borderRadius = '8px';
+        modal.style.padding = '28px 24px 20px 24px';
+        modal.style.borderRadius = '12px';
         modal.style.zIndex = 99999;
-        modal.style.boxShadow = '0 2px 12px #0008';
-        modal.style.minWidth = '280px';
+        modal.style.boxShadow = '0 2px 16px #000a';
+        modal.style.minWidth = '320px';
         modal.style.textAlign = 'center';
+        modal.style.fontSize = '15px';
 
         const intervalSettings = getIntervalSettings();
         const iconSettings = JSON.parse(localStorage.getItem('prayerReminderIconSettings')) || {
@@ -249,35 +250,66 @@
             offset: 2
         };
 
+        // Helper to format snooze
+        function snoozeText() {
+            if (!intervalSettings.snoozedUntil) return "None";
+            const d = new Date(intervalSettings.snoozedUntil);
+            return d.toLocaleString();
+        }
+
         modal.innerHTML = `
-            <div style="margin-bottom:10px;font-size:18px;">Prayer Reminder Settings</div>
-            <div style="margin-bottom:10px;">
-                <b>Notification Times:</b><br>
-                <span id="prayer-notification-times"></span>
-            </div>
-            <div style="margin-bottom:10px;">
-                <label>
-                    <input type="checkbox" id="auto-interval-toggle" ${intervalSettings.enabled ? "checked" : ""}>
-                    Enable auto interval notification
-                </label>
-                <div id="interval-settings" style="margin-top:8px;${intervalSettings.enabled ? "" : "display:none;"}">
-                    Every <input id="interval-hours" type="number" min="1" max="24" value="${intervalSettings.hours}" style="width:40px;"> hour(s)
-                    <br>Start at <input id="interval-start" type="time" value="${intervalSettings.start}" style="width:90px;">
+            <div style="margin-bottom:16px;font-size:20px;font-weight:bold;">Prayer Reminder Settings</div>
+            <div style="margin-bottom:18px;padding-bottom:8px;border-bottom:1px solid #444;">
+                <div style="margin-bottom:8px;">
+                    <b>Manual Notification Times:</b>
+                </div>
+                <div id="prayer-notification-times" style="margin-bottom:10px;"></div>
+                <div style="display:flex;justify-content:center;align-items:center;gap:8px;">
+                    <input id="manual-time-input" type="time" style="width:100px;padding:2px 6px;border-radius:5px;border:1px solid #444;background:#181818;color:#fff;">
+                    <button id="add-notification-time" style="padding:4px 12px;border-radius:5px;background:#3a7cff;color:#fff;border:none;cursor:pointer;">Add</button>
                 </div>
             </div>
-            <div style="margin-bottom:10px;">
+            <div style="margin-bottom:18px;padding-bottom:8px;border-bottom:1px solid #444;">
+                <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <input type="checkbox" id="auto-interval-toggle" ${intervalSettings.enabled ? "checked" : ""} style="transform:scale(1.2);margin-right:4px;">
+                    <span>Enable auto interval notification</span>
+                </label>
+                <div id="interval-settings" style="margin-top:6px;${intervalSettings.enabled ? "" : "display:none;"}">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                        <span>Every</span>
+                        <input id="interval-hours" type="number" min="1" max="24" value="${intervalSettings.hours}" style="width:48px;padding:2px 6px;border-radius:5px;border:1px solid #444;background:#181818;color:#fff;">
+                        <span>hour(s)</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span>Start at</span>
+                        <input id="interval-start" type="time" value="${intervalSettings.start}" style="width:100px;padding:2px 6px;border-radius:5px;border:1px solid #444;background:#181818;color:#fff;">
+                    </div>
+                </div>
+            </div>
+            <div style="margin-bottom:18px;padding-bottom:8px;border-bottom:1px solid #444;">
+                <div style="margin-bottom:8px;">
+                    <b>Snooze:</b>
+                </div>
+                <div style="margin-bottom:8px;">
+                    <span>Current snooze: <span id="current-snooze">${snoozeText()}</span></span>
+                </div>
+                <button id="toggle-snooze-btn" style="padding:4px 12px;border-radius:5px;background:#ffb13a;color:#222;border:none;cursor:pointer;">
+                    ${intervalSettings.snoozedUntil ? "Unset Snooze" : "Snooze Until Next Interval"}
+                </button>
+            </div>
+            <div style="margin-bottom:18px;">
                 <b>Icon Position:</b><br>
-                <label>
+                <label style="margin-right:12px;">
                     <input type="radio" name="icon-position" value="beginning" ${iconSettings.position === "beginning" ? "checked" : ""}> Beginning
                 </label>
                 <label>
                     <input type="radio" name="icon-position" value="end" ${iconSettings.position === "end" ? "checked" : ""}> End
                 </label>
                 <br>
-                Offset from end: <input id="icon-offset" type="number" min="0" value="${iconSettings.offset}" style="width:40px;">
+                <span style="margin-right:4px;">Offset from end:</span>
+                <input id="icon-offset" type="number" min="0" value="${iconSettings.offset}" style="width:48px;padding:2px 6px;border-radius:5px;border:1px solid #444;background:#181818;color:#fff;">
             </div>
-            <button id="add-notification-time" style="margin:4px;">Add Notification Time</button>
-            <button id="close-prayer-modal" style="margin:4px;">Close</button>
+            <button id="close-prayer-modal" style="padding:6px 18px;border-radius:5px;background:#444;color:#fff;border:none;cursor:pointer;">Close</button>
         `;
 
         document.body.appendChild(modal);
@@ -287,28 +319,34 @@
             const notifSpan = modal.querySelector('#prayer-notification-times');
             notifSpan.innerHTML = notifTimes.length
                 ? notifTimes.map((t, i) =>
-                    `<span style="margin-right:6px;">${t} <button data-type="notification" data-index="${i}" style="font-size:10px;">✖</button></span>`
+                    `<span style="margin-right:8px;display:inline-flex;align-items:center;background:#333;padding:2px 8px;border-radius:4px;">
+                        ${t}
+                        <button data-type="notification" data-index="${i}" style="margin-left:6px;font-size:12px;background:none;border:none;color:#ff6b6b;cursor:pointer;">✖</button>
+                    </span>`
                 ).join("")
-                : "None";
+                : "<span style='color:#aaa;'>None</span>";
         }
         renderTimes();
 
+        // Add manual notification time
         modal.querySelector('#add-notification-time').onclick = function () {
-            let input = prompt("Enter a notification time (24h format, e.g. 09:00):");
-            if (input && /^\d{2}:\d{2}$/.test(input.trim())) {
+            const input = modal.querySelector('#manual-time-input');
+            if (input.value && /^\d{2}:\d{2}$/.test(input.value.trim())) {
                 let times = getNotificationTimes();
-                if (!times.includes(input.trim())) {
-                    times.push(input.trim());
+                if (!times.includes(input.value.trim())) {
+                    times.push(input.value.trim());
                     setNotificationTimes(times);
                     updatePrayerIconTooltip();
                     renderTimes();
+                    input.value = "";
                     if (isReallyTornPDA && window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
-                        schedulePDA("notification", input.trim(), 1000 + times.length);
+                        schedulePDA("notification", input.value.trim(), 1000 + times.length);
                     }
                 }
             }
         };
 
+        // Remove manual notification time
         modal.addEventListener('click', function (e) {
             if (e.target.tagName === "BUTTON" && e.target.dataset.type === "notification") {
                 const idx = parseInt(e.target.dataset.index, 10);
@@ -323,6 +361,7 @@
             }
         });
 
+        // Interval toggle
         const intervalToggle = modal.querySelector('#auto-interval-toggle');
         const intervalDiv = modal.querySelector('#interval-settings');
         intervalToggle.onchange = function () {
@@ -345,6 +384,28 @@
             updatePrayerIconTooltip();
         };
 
+        // Snooze toggle
+        modal.querySelector('#toggle-snooze-btn').onclick = function () {
+            let settings = getIntervalSettings();
+            if (settings.snoozedUntil) {
+                // Unset snooze
+                settings.snoozedUntil = null;
+            } else {
+                // Set snooze until next interval start
+                const now = new Date();
+                const [h, m] = settings.start.split(":").map(Number);
+                let next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+                if (now >= next) next.setDate(next.getDate() + 1);
+                settings.snoozedUntil = next.toISOString();
+            }
+            setIntervalSettings(settings);
+            // Update snooze display and button
+            modal.querySelector('#current-snooze').textContent = snoozeText();
+            modal.querySelector('#toggle-snooze-btn').textContent = settings.snoozedUntil ? "Unset Snooze" : "Snooze Until Next Interval";
+            updatePrayerIconTooltip();
+        };
+
+        // Icon position
         modal.querySelector('#close-prayer-modal').onclick = function () {
             const iconPosition = modal.querySelector('input[name="icon-position"]:checked').value;
             const iconOffset = parseInt(modal.querySelector('#icon-offset').value, 10);
