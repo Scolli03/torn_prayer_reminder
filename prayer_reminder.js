@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn City Prayer Reminder
 // @namespace    http://tampermonkey.net/
-// @version      2.12
+// @version      3.0
 // @description  Reminds you to pray at the church in Torn City at configurable times (browser & Torn PDA). Supports manual times and auto interval snooze.
 // @author       YourName
 // @match        https://www.torn.com/*
@@ -96,29 +96,6 @@
             };
         } else if (typeof Notification === "undefined") {
             alert("Don't forget to pray at the church today!\n\n" + churchUrl);
-        }
-    }
-
-    // --- PDA Scheduling Helpers ---
-    function schedulePDA(type, time, id) {
-        // time: "HH:MM", id: integer (unique per notification)
-        const now = new Date();
-        const [hour, minute] = time.split(":").map(Number);
-        let target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
-        if (target < now) target.setDate(target.getDate() + 1); // schedule for next day if time has passed
-        const timestamp = target.getTime();
-
-        if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
-            window.flutter_inappwebview.callHandler('scheduleNotification', {
-                title: 'Torn City Prayer Reminder',
-                id: id,
-                timestamp: timestamp,
-                launchNativeToast: true,
-                toastMessage: 'Prayer notification scheduled!',
-                toastColor: 'blue',
-                toastDurationSeconds: 3,
-                urlCallback: churchUrl
-            });
         }
     }
 
@@ -371,7 +348,8 @@
                     renderTimes();
                     input.value = "";
                     if (isReallyTornPDA && window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
-                        schedulePDA("notification", input.value.trim(), 1000 + times.length);
+                        const [h, m] = input.value.trim().split(":").map(Number);
+                        schedulePrayerReminder(h, m);
                     }
                 }
             }
@@ -544,6 +522,80 @@
             observer.observe(document.body, { childList: true, subtree: true });
         }
     }
+
+    // --- Main Scheduling Logic ---
+    async function schedulePrayerReminder(hour, minute) {
+        const now = new Date();
+        const targetTime = new Date(now);
+        targetTime.setHours(hour, minute, 0, 0);
+
+        if (targetTime <= now) {
+            targetTime.setDate(targetTime.getDate() + 1);
+        }
+
+        const targetTimestamp = targetTime.getTime();
+
+        let existing = [];
+        try {
+            existing = await window.flutter_inappwebview.callHandler('getScheduledNotifications');
+        } catch (e) {
+            console.warn('[Prayer] Could not fetch scheduled notifications:', e);
+        }
+
+        const alreadyScheduled = (existing || []).some(n => {
+            return Math.abs(n.timestamp - targetTimestamp) < 1000;
+        });
+
+        if (alreadyScheduled) {
+            console.log(`[Prayer] Notification already scheduled for ${targetTime.toLocaleString()}`);
+            return;
+        }
+
+        const existingIds = new Set((existing || []).map(n => n.id));
+        let id;
+        let attempts = 0;
+        do {
+            id = Math.floor(Math.random() * 9999) + 1;
+            attempts++;
+            if (attempts > 10000) {
+                console.error('Unable to find free notification ID');
+                return;
+            }
+        } while (existingIds.has(id));
+
+        window.flutter_inappwebview.callHandler('scheduleNotification', {
+            title: 'Time to pray ' + emoji,
+            subtitle: `Scheduled at ${targetTime.toLocaleTimeString()}`,
+            id: id,
+            timestamp: targetTimestamp,
+            overwriteID: false,
+            launchNativeToast: true,
+            toastMessage: `Prayer reminder set for ${targetTime.toLocaleTimeString()}`,
+            toastColor: 'green',
+            toastDurationSeconds: 4,
+            urlCallback: churchUrl
+        });
+
+        console.log(`[Prayer] Scheduled new notification ID ${id} for ${targetTime.toLocaleString()}`);
+    }
+
+    function scheduleAllPrayerReminders() {
+        const times = getNotificationTimes();
+        times.forEach(t => {
+            const [h, m] = t.split(":").map(Number);
+            schedulePrayerReminder(h, m);
+        });
+    }
+
+    // --- Torn PDA check and kickoff ---
+    window.addEventListener('load', () => {
+        detectTornPDA(() => {
+            if (isReallyTornPDA && window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+                console.log('[Prayer Reminder] Detected Torn PDA. Scheduling notifications...');
+                scheduleAllPrayerReminders();
+            }
+        });
+    });
 
     // --- Main ---
     function main() {
