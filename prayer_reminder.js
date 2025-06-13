@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn City Prayer Reminder
 // @namespace    http://tampermonkey.net/
-// @version      2.3
+// @version      2.4
 // @description  Reminds you to pray at the church in Torn City at configurable times (browser & Torn PDA). Supports manual times and auto interval snooze.
 // @author       YourName
 // @match        https://www.torn.com/*
@@ -403,9 +403,16 @@
                 settings.snoozedUntil = next.toISOString();
             }
             setIntervalSettings(settings);
-            // Update snooze display and button immediately
+
+            // Reload settings from storage to get the latest value
+            const updatedSettings = getIntervalSettings();
+            function snoozeText() {
+                if (!updatedSettings.snoozedUntil) return "None";
+                const d = new Date(updatedSettings.snoozedUntil);
+                return d.toLocaleString();
+            }
             modal.querySelector('#current-snooze').textContent = snoozeText();
-            modal.querySelector('#toggle-snooze-btn').textContent = settings.snoozedUntil ? "Unset Snooze" : "Snooze Until Next Interval";
+            modal.querySelector('#toggle-snooze-btn').textContent = updatedSettings.snoozedUntil ? "Unset Snooze" : "Snooze Until Next Interval";
             updatePrayerIconTooltip();
         };
 
