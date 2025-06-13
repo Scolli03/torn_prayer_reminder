@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn City Prayer Reminder
 // @namespace    http://tampermonkey.net/
-// @version      2.1
+// @version      2.2
 // @description  Reminds you to pray at the church in Torn City at configurable times (browser & Torn PDA). Supports manual times and auto interval snooze.
 // @author       YourName
 // @match        https://www.torn.com/*
@@ -309,7 +309,8 @@
                 <span style="margin-right:4px;">Offset from end:</span>
                 <input id="icon-offset" type="number" min="0" value="${iconSettings.offset}" style="width:48px;padding:2px 6px;border-radius:5px;border:1px solid #444;background:#181818;color:#fff;">
             </div>
-            <button id="close-prayer-modal" style="padding:6px 18px;border-radius:5px;background:#444;color:#fff;border:none;cursor:pointer;">Close</button>
+            <button id="close-prayer-modal" style="padding:6px 18px;border-radius:5px;background:#444;color:#fff;border:none;cursor:pointer;">Save</button>
+            <div style="margin-top:10px;font-size:12px;color:#aaa;">Page will refresh automatically on save.</div>
         `;
 
         document.body.appendChild(modal);
@@ -405,7 +406,7 @@
             updatePrayerIconTooltip();
         };
 
-        // Icon position
+        // Icon position and Save/refresh
         modal.querySelector('#close-prayer-modal').onclick = function () {
             const iconPosition = modal.querySelector('input[name="icon-position"]:checked').value;
             const iconOffset = parseInt(modal.querySelector('#icon-offset').value, 10);
@@ -416,8 +417,12 @@
                 offset: iconOffset
             }));
 
-            alert("Icon position settings updated. Changes will take effect on the next page load.");
-            modal.remove();
+            // Refresh page using correct handler
+            if (isReallyTornPDA && window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+                window.flutter_inappwebview.callHandler('reloadPage');
+            } else {
+                window.location.reload();
+            }
         };
     }
 
