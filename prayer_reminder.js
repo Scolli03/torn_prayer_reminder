@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn City Prayer Reminder
 // @namespace    http://tampermonkey.net/
-// @version      2.2
+// @version      2.3
 // @description  Reminds you to pray at the church in Torn City at configurable times (browser & Torn PDA). Supports manual times and auto interval snooze.
 // @author       YourName
 // @match        https://www.torn.com/*
@@ -275,12 +275,12 @@
                     <span>Enable auto interval notification</span>
                 </label>
                 <div id="interval-settings" style="margin-top:6px;${intervalSettings.enabled ? "" : "display:none;"}">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:8px;">
                         <span>Every</span>
                         <input id="interval-hours" type="number" min="1" max="24" value="${intervalSettings.hours}" style="width:48px;padding:2px 6px;border-radius:5px;border:1px solid #444;background:#181818;color:#fff;">
                         <span>hour(s)</span>
                     </div>
-                    <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="display:flex;justify-content:center;align-items:center;gap:8px;">
                         <span>Start at</span>
                         <input id="interval-start" type="time" value="${intervalSettings.start}" style="width:100px;padding:2px 6px;border-radius:5px;border:1px solid #444;background:#181818;color:#fff;">
                     </div>
@@ -309,7 +309,10 @@
                 <span style="margin-right:4px;">Offset from end:</span>
                 <input id="icon-offset" type="number" min="0" value="${iconSettings.offset}" style="width:48px;padding:2px 6px;border-radius:5px;border:1px solid #444;background:#181818;color:#fff;">
             </div>
-            <button id="close-prayer-modal" style="padding:6px 18px;border-radius:5px;background:#444;color:#fff;border:none;cursor:pointer;">Save</button>
+            <div style="display:flex;justify-content:center;gap:12px;">
+                <button id="cancel-prayer-modal" style="padding:6px 18px;border-radius:5px;background:#666;color:#fff;border:none;cursor:pointer;">Cancel</button>
+                <button id="close-prayer-modal" style="padding:6px 18px;border-radius:5px;background:#444;color:#fff;border:none;cursor:pointer;">Save</button>
+            </div>
             <div style="margin-top:10px;font-size:12px;color:#aaa;">Page will refresh automatically on save.</div>
         `;
 
@@ -385,7 +388,7 @@
             updatePrayerIconTooltip();
         };
 
-        // Snooze toggle
+        // Snooze toggle (updates snooze display and button instantly)
         modal.querySelector('#toggle-snooze-btn').onclick = function () {
             let settings = getIntervalSettings();
             if (settings.snoozedUntil) {
@@ -400,10 +403,15 @@
                 settings.snoozedUntil = next.toISOString();
             }
             setIntervalSettings(settings);
-            // Update snooze display and button
+            // Update snooze display and button immediately
             modal.querySelector('#current-snooze').textContent = snoozeText();
             modal.querySelector('#toggle-snooze-btn').textContent = settings.snoozedUntil ? "Unset Snooze" : "Snooze Until Next Interval";
             updatePrayerIconTooltip();
+        };
+
+        // Cancel button (just closes modal)
+        modal.querySelector('#cancel-prayer-modal').onclick = function () {
+            modal.remove();
         };
 
         // Icon position and Save/refresh
