@@ -266,6 +266,14 @@
             return d.toLocaleString();
         }
 
+        // Helper to format 24h time to 12h
+        function to12Hour(time24) {
+            const [h, m] = time24.split(':').map(Number);
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const hour = ((h + 11) % 12 + 1);
+            return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
+        }
+
         modal.innerHTML = `
             <div style="margin-bottom:16px;font-size:20px;font-weight:bold;">Prayer Reminder Settings</div>
             <div style="margin-bottom:18px;padding-bottom:8px;border-bottom:1px solid #444;">
@@ -337,7 +345,7 @@
             notifSpan.innerHTML = notifTimes.length
                 ? notifTimes.map((t, i) =>
                     `<span style="margin-right:8px;display:inline-flex;align-items:center;background:#333;padding:2px 8px;border-radius:4px;">
-                        ${t}
+                        ${to12Hour(t)}
                         <button data-type="notification" data-index="${i}" style="margin-left:6px;font-size:12px;background:none;border:none;color:#ff6b6b;cursor:pointer;">✖</button>
                     </span>`
                 ).join("")
@@ -427,6 +435,7 @@
             modal.querySelector('#current-snooze').textContent = snoozeText();
             modal.querySelector('#toggle-snooze-btn').textContent = updatedSettings.snoozedUntil ? "Unset Snooze" : "Snooze Until Next Interval";
             updatePrayerIconTooltip();
+            setTimeout(updatePrayerIconTooltip, 100); // Extra update for mobile/PDA
         };
 
         // Cancel button (just closes modal)
