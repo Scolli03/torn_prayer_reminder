@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn City Prayer Reminder
 // @namespace    http://tampermonkey.net/
-// @version      2.12
+// @version      3.2
 // @description  Reminds you to pray at the church in Torn City at configurable times (browser & Torn PDA). Supports manual times and auto interval snooze.
 // @author       YourName
 // @match        https://www.torn.com/*
@@ -105,7 +105,13 @@
         const now = new Date();
         const [hour, minute] = time.split(":").map(Number);
         let target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
-        if (target < now) target.setDate(target.getDate() + 1); // schedule for next day if time has passed
+        
+        // If the time has passed today, schedule for tomorrow
+        if (target < now) {
+            target.setDate(target.getDate() + 1);
+        }
+        
+        // Convert to milliseconds for the Flutter handler
         const timestamp = target.getTime();
 
         if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
@@ -114,12 +120,39 @@
                 id: id,
                 timestamp: timestamp,
                 launchNativeToast: true,
-                toastMessage: 'Prayer notification scheduled!',
+                toastMessage: 'Don\'t forget to pray at the church today!',
                 toastColor: 'blue',
                 toastDurationSeconds: 3,
                 urlCallback: churchUrl
+            }).then(() => {
+                // After scheduling, set up the next day's notification
+                const nextDay = new Date(target);
+                nextDay.setDate(nextDay.getDate() + 1);
+                
+                window.flutter_inappwebview.callHandler('scheduleNotification', {
+                    title: 'Torn City Prayer Reminder',
+                    id: id,
+                    timestamp: nextDay.getTime(),
+                    launchNativeToast: true,
+                    toastMessage: 'Don\'t forget to pray at the church today!',
+                    toastColor: 'blue',
+                    toastDurationSeconds: 3,
+                    urlCallback: churchUrl
+                });
             });
         }
+    }
+
+    // Add function to get scheduled notifications
+    function getScheduledNotifications() {
+        if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+            return window.flutter_inappwebview.callHandler('getScheduledNotifications')
+                .then(notifications => {
+                    return notifications || [];
+                })
+                .catch(() => []);
+        }
+        return Promise.resolve([]);
     }
 
     function cancelPDANotification(id) {
@@ -332,6 +365,14 @@
                 <span style="margin-right:4px;">Offset from end:</span>
                 <input id="icon-offset" type="number" min="0" value="${iconSettings.offset}" style="width:48px;padding:2px 6px;border-radius:5px;border:1px solid #444;background:#181818;color:#fff;" ${iconSettings.position === "beginning" ? "disabled" : ""}>
             </div>
+            <div style="margin-bottom:18px;padding-bottom:8px;border-bottom:1px solid #444;">
+                <div style="margin-bottom:8px;">
+                    <b>Scheduled Notifications:</b>
+                </div>
+                <div id="scheduled-notifications" style="margin-bottom:10px;">
+                    <span style='color:#aaa;'>Loading...</span>
+                </div>
+            </div>
             <div style="display:flex;justify-content:center;gap:12px;">
                 <button id="cancel-prayer-modal" style="padding:6px 18px;border-radius:5px;background:#666;color:#fff;border:none;cursor:pointer;">Cancel</button>
                 <button id="close-prayer-modal" style="padding:6px 18px;border-radius:5px;background:#444;color:#fff;border:none;cursor:pointer;">Save</button>
@@ -401,18 +442,35 @@
             settings.enabled = intervalToggle.checked;
             setIntervalSettings(settings);
             updatePrayerIconTooltip();
+            
+            // Schedule interval notifications if enabled
+            if (settings.enabled && isReallyTornPDA) {
+                scheduleIntervalNotifications();
+            }
         };
+        
         modal.querySelector('#interval-hours').onchange = function () {
             let settings = getIntervalSettings();
             settings.hours = Math.max(1, parseInt(this.value, 10) || 1);
             setIntervalSettings(settings);
             updatePrayerIconTooltip();
+            
+            // Reschedule interval notifications if enabled
+            if (settings.enabled && isReallyTornPDA) {
+                scheduleIntervalNotifications();
+            }
         };
+        
         modal.querySelector('#interval-start').onchange = function () {
             let settings = getIntervalSettings();
             settings.start = this.value;
             setIntervalSettings(settings);
             updatePrayerIconTooltip();
+            
+            // Reschedule interval notifications if enabled
+            if (settings.enabled && isReallyTornPDA) {
+                scheduleIntervalNotifications();
+            }
         };
 
         // Snooze toggle (updates snooze display and button instantly)
@@ -508,6 +566,33 @@
                 offset: parseInt(iconOffsetInput.value, 10)
             }));
         });
+
+        // Function to update scheduled notifications display
+        function updateScheduledNotifications() {
+            const scheduledDiv = modal.querySelector('#scheduled-notifications');
+            if (isReallyTornPDA) {
+                getScheduledNotifications().then(notifications => {
+                    if (notifications.length === 0) {
+                        scheduledDiv.innerHTML = "<span style='color:#aaa;'>No notifications scheduled</span>";
+                        return;
+                    }
+
+                    scheduledDiv.innerHTML = notifications.map(notif => {
+                        const date = new Date(notif.timestamp);
+                        return `
+                            <div style="margin-bottom:4px;background:#333;padding:4px 8px;border-radius:4px;">
+                                ${date.toLocaleString()} (ID: ${notif.id})
+                            </div>
+                        `;
+                    }).join('');
+                });
+            } else {
+                scheduledDiv.innerHTML = "<span style='color:#aaa;'>Not available in browser</span>";
+            }
+        }
+
+        // Update scheduled notifications when modal opens
+        updateScheduledNotifications();
     }
 
     // --- Snooze after prayer ---
@@ -545,6 +630,49 @@
         }
     }
 
+    // Add function to schedule interval notifications
+    function scheduleIntervalNotifications() {
+        const intervalSettings = getIntervalSettings();
+        if (!intervalSettings.enabled || !isReallyTornPDA) return;
+
+        const now = new Date();
+        const [startHour, startMinute] = intervalSettings.start.split(":").map(Number);
+        let start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), startHour, startMinute, 0, 0);
+        
+        // If start time has passed today, start from tomorrow
+        if (start < now) {
+            start.setDate(start.getDate() + 1);
+        }
+
+        // Schedule notifications for the next 7 days
+        for (let day = 0; day < 7; day++) {
+            const baseTime = new Date(start);
+            baseTime.setDate(baseTime.getDate() + day);
+            
+            // Schedule each interval for this day
+            for (let interval = 0; interval < 24 / intervalSettings.hours; interval++) {
+                const notificationTime = new Date(baseTime);
+                notificationTime.setHours(baseTime.getHours() + (interval * intervalSettings.hours));
+                
+                // Skip if this time has already passed
+                if (notificationTime < now) continue;
+                
+                const id = 2000 + (day * 100) + interval; // Unique ID for each interval notification
+                
+                window.flutter_inappwebview.callHandler('scheduleNotification', {
+                    title: 'Torn City Prayer Reminder',
+                    id: id,
+                    timestamp: notificationTime.getTime(),
+                    launchNativeToast: true,
+                    toastMessage: 'Don\'t forget to pray at the church today!',
+                    toastColor: 'blue',
+                    toastDurationSeconds: 3,
+                    urlCallback: churchUrl
+                });
+            }
+        }
+    }
+
     // --- Main ---
     function main() {
         detectTornPDA(() => {
@@ -555,6 +683,22 @@
                 }
             };
             tryAddIcon();
+            
+            // Schedule notifications on startup
+            if (isReallyTornPDA) {
+                // Schedule manual notifications
+                const notificationTimes = getNotificationTimes();
+                notificationTimes.forEach((time, index) => {
+                    schedulePDA("notification", time, 1000 + index);
+                });
+                
+                // Schedule interval notifications if enabled
+                const intervalSettings = getIntervalSettings();
+                if (intervalSettings.enabled) {
+                    scheduleIntervalNotifications();
+                }
+            }
+            
             setInterval(checkPrayerTime, 60000);
             setupSnoozeOnPrayer();
         });
