@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn City Prayer Reminder
 // @namespace    http://tampermonkey.net/
-// @version      2.6
+// @version      2.7
 // @description  Reminds you to pray at the church in Torn City at configurable times (browser & Torn PDA). Supports manual times and auto interval snooze.
 // @author       YourName
 // @match        https://www.torn.com/*
@@ -176,29 +176,11 @@
             }
             icon.title = tip;
 
-            // Change icon and background if snoozed
+            // Change icon if snoozed
             if (intervalSettings.enabled && intervalSettings.snoozedUntil) {
-                icon.textContent = "🙏💤";
-                icon.style.background = "#3498db"; // blue
-                icon.style.color = "#fff";
-                icon.style.borderRadius = "50%";
-                icon.style.width = "24px";
-                icon.style.height = "24px";
-                icon.style.display = "flex";
-                icon.style.alignItems = "center";
-                icon.style.justifyContent = "center";
-                icon.style.fontSize = "17px";
+                icon.textContent = "💤";
             } else {
-                icon.textContent = emoji;
-                icon.style.background = "#27ae60"; // green
-                icon.style.color = "#fff";
-                icon.style.borderRadius = "50%";
-                icon.style.width = "24px";
-                icon.style.height = "24px";
-                icon.style.display = "flex";
-                icon.style.alignItems = "center";
-                icon.style.justifyContent = "center";
-                icon.style.fontSize = "17px";
+                icon.textContent = emoji;                
             }
         }
     }
