@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn City Prayer Reminder
 // @namespace    http://tampermonkey.net/
-// @version      2.5
+// @version      2.6
 // @description  Reminds you to pray at the church in Torn City at configurable times (browser & Torn PDA). Supports manual times and auto interval snooze.
 // @author       YourName
 // @match        https://www.torn.com/*
@@ -175,6 +175,31 @@
                 }
             }
             icon.title = tip;
+
+            // Change icon and background if snoozed
+            if (intervalSettings.enabled && intervalSettings.snoozedUntil) {
+                icon.textContent = "🙏💤";
+                icon.style.background = "#3498db"; // blue
+                icon.style.color = "#fff";
+                icon.style.borderRadius = "50%";
+                icon.style.width = "24px";
+                icon.style.height = "24px";
+                icon.style.display = "flex";
+                icon.style.alignItems = "center";
+                icon.style.justifyContent = "center";
+                icon.style.fontSize = "17px";
+            } else {
+                icon.textContent = emoji;
+                icon.style.background = "#27ae60"; // green
+                icon.style.color = "#fff";
+                icon.style.borderRadius = "50%";
+                icon.style.width = "24px";
+                icon.style.height = "24px";
+                icon.style.display = "flex";
+                icon.style.alignItems = "center";
+                icon.style.justifyContent = "center";
+                icon.style.fontSize = "17px";
+            }
         }
     }
 
@@ -447,6 +472,21 @@
         // Icon position radio change handler to enable/disable offset input
         const iconOffsetInput = modal.querySelector('#icon-offset');
         const iconPositionRadios = modal.querySelectorAll('input[name="icon-position"]');
+
+        // Helper to update disabled style
+        function updateOffsetDisabledStyle() {
+            if (iconOffsetInput.disabled) {
+                iconOffsetInput.style.background = "#333";
+                iconOffsetInput.style.opacity = "0.5";
+                iconOffsetInput.style.cursor = "not-allowed";
+            } else {
+                iconOffsetInput.style.background = "#181818";
+                iconOffsetInput.style.opacity = "1";
+                iconOffsetInput.style.cursor = "";
+            }
+        }
+        updateOffsetDisabledStyle();
+
         iconPositionRadios.forEach(radio => {
             radio.addEventListener('change', function () {
                 if (this.value === "beginning") {
@@ -454,6 +494,7 @@
                 } else {
                     iconOffsetInput.disabled = false;
                 }
+                updateOffsetDisabledStyle();
                 // Save instantly
                 localStorage.setItem('prayerReminderIconSettings', JSON.stringify({
                     position: this.value,
@@ -461,7 +502,6 @@
                 }));
             });
         });
-        // Also save offset instantly on change
         iconOffsetInput.addEventListener('input', function () {
             const selectedPosition = modal.querySelector('input[name="icon-position"]:checked').value;
             localStorage.setItem('prayerReminderIconSettings', JSON.stringify({
